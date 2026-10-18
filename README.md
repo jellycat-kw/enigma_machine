@@ -2,6 +2,8 @@
 
 A working 3-rotor Enigma cipher machine built with VEX IQ (2nd gen). The Brain does the cipher math, and three motor-driven rotor discs physically turn to show each rotor's position, like the windows on a real Enigma.
 
+**[Try the interactive animation](https://jellycat-kw.github.io/enigma_machine/)**
+
 It uses the historical Enigma I rotors I, II and III with reflector B. Typing `AAAAA` from A-A-A gives `BDZGO`, the same as a real machine.
 
 ## What's here
