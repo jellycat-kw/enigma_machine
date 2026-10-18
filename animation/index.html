@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEX IQ Enigma</title>
+<style>
+:root{--bg:#faf9f5;--card:#f1efe8;--line:#b4b2a9;--text:#2c2c2a;--muted:#5f5e5a;--accent-bg:#e6f1fb;--accent:#185fa5}
+@media (prefers-color-scheme:dark){:root{--bg:#1f1f1e;--card:#2c2c2a;--line:#5f5e5a;--text:#f1efe8;--muted:#b4b2a9;--accent-bg:#0c447c;--accent:#b5d4f4}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:720px;margin:0 auto;padding:24px 16px}
+h1{font-size:22px;font-weight:500;margin:0 0 4px}
+p{color:var(--muted);margin:0 0 16px}
+svg text{fill:var(--muted);font-size:12px}
+.rot{transform-box:view-box;transition:transform .5s ease}
+.path{display:flex;gap:4px;margin-top:8px}
+.stage{flex:1;min-width:0;text-align:center;padding:6px 2px;border:0.5px solid var(--line);border-radius:8px;font-size:12px;color:var(--muted);transition:background .2s}
+.stage b{display:block;font-size:18px;font-weight:500;color:var(--text)}
+.stage.on{background:var(--accent-bg);border-color:var(--accent)}
+.stage.on b{color:var(--accent)}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+button{font:inherit;font-size:14px;color:var(--text);background:transparent;border:0.5px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{background:var(--card)}
+.mono{font-family:ui-monospace,Menlo,monospace;color:var(--text)}
+</style>
+</head>
+<body>
+<main>
+<h1>VEX IQ Enigma machine</h1>
+<p>Pick a letter and press the key, or play the demo to watch HELLO get encrypted.</p>
+<svg viewBox="0 0 680 310" width="100%" role="img" aria-label="VEX IQ Enigma machine">
+<rect x="40" y="20" width="600" height="280" rx="8" fill="var(--card)" stroke="var(--line)" stroke-width="0.5"/>
+<g id="discs"></g>
+<rect x="230" y="200" width="220" height="90" rx="8" fill="var(--bg)" stroke="var(--line)" stroke-width="0.5"/>
+<rect x="245" y="208" width="190" height="56" rx="4" fill="#042C53"/>
+<text id="scr1" x="255" y="224" style="fill:#B5D4F4;font-family:ui-monospace,monospace">Rotors: AAA</text>
+<text id="scr2" x="255" y="240" style="fill:#B5D4F4;font-family:ui-monospace,monospace">Key: &lt; A &gt;</text>
+<text id="scr3" x="255" y="256" style="fill:#B5D4F4;font-family:ui-monospace,monospace">In: / Out:</text>
+<circle cx="300" cy="277" r="7" fill="var(--card)" stroke="var(--line)"/><circle cx="340" cy="277" r="8" fill="var(--card)" stroke="var(--line)"/><circle cx="380" cy="277" r="7" fill="var(--card)" stroke="var(--line)"/>
+<text x="455" y="280">Brain</text>
+<circle id="led" cx="560" cy="245" r="22" fill="#378ADD" stroke="#185FA5" stroke-width="1"/>
+<text x="560" y="285" text-anchor="middle">Touch LED</text>
+<text x="125" y="245" text-anchor="middle">Motors on</text>
+<text x="125" y="262" text-anchor="middle">ports 1, 2, 3</text>
+</svg>
+<div id="path" class="path"></div>
+<div class="ctl">
+<button id="bl" aria-label="Previous letter">&lsaquo;</button>
+<span id="sel" style="font-size:20px;font-weight:500;min-width:20px;text-align:center">A</span>
+<button id="br" aria-label="Next letter">&rsaquo;</button>
+<button id="bk">Press key</button>
+<button id="bp">Play demo</button>
+<button id="bz">Reset</button>
+</div>
+<div style="font-size:14px;color:var(--muted)">Message in: <span id="pin" class="mono"></span> &nbsp; out: <span id="pout" class="mono"></span></div>
+</main>
+<script>
+const A="ABCDEFGHIJKLMNOPQRSTUVWXYZ",W=["EKMFLGDQVZNTOWYHXUSPAIBRCJ","AJDKSIRUXBLHWTMCQGZNPYFVOE","BDFHJLCPRTXVZNYEIWGAKMUSQO"],N=[16,4,21],R="YRUHQSLDPXNGOKMIEBFZCWVJAT",D=360/26;
+let pos=[0,0,0],turns=[0,0,0],sel=0,pin="",pout="",busy=false;
+const cx=[200,340,480],cy=110,r=62,ns="http://www.w3.org/2000/svg",discs=document.getElementById('discs'),rots=[];
+const names=["Left","Middle","Right"];
+cx.forEach((x,i)=>{
+ const g=document.createElementNS(ns,'g');
+ g.innerHTML=`<circle cx="${x}" cy="${cy}" r="${r+8}" fill="var(--bg)" stroke="var(--line)" stroke-width="0.5"/><text x="${x}" y="${cy+r+26}" text-anchor="middle">${names[i]} rotor</text>`;
+ const rg=document.createElementNS(ns,'g');rg.setAttribute('class','rot');rg.style.transformOrigin=`${x}px ${cy}px`;
+ let s=`<circle cx="${x}" cy="${cy}" r="${r}" fill="none" stroke="#888780" stroke-width="0.5"/><circle cx="${x}" cy="${cy}" r="10" fill="#888780"/>`;
+ for(let k=0;k<26;k++){const a=k*D*Math.PI/180,tx=x+Math.sin(a)*(r-12),ty=cy-Math.cos(a)*(r-12)+4;
+  s+=`<text x="${tx}" y="${ty}" text-anchor="middle" transform="rotate(${k*D} ${tx} ${ty-4})" style="font-size:11px;fill:var(--text)">${A[k]}</text>`;}
+ for(let k=0;k<6;k++){const a=k*60*Math.PI/180;s+=`<line x1="${x+Math.sin(a)*14}" y1="${cy-Math.cos(a)*14}" x2="${x+Math.sin(a)*(r-24)}" y2="${cy-Math.cos(a)*(r-24)}" stroke="#B4B2A9" stroke-width="1"/>`;}
+ rg.innerHTML=s;g.appendChild(rg);
+ const p=document.createElementNS(ns,'polygon');p.setAttribute('points',`${x-8},${cy-r-22} ${x+8},${cy-r-22} ${x},${cy-r-6}`);p.setAttribute('fill','#D85A30');g.appendChild(p);
+ discs.appendChild(g);rots.push(rg);
+});
+const labels=["Key","Right","Middle","Left","Reflect","Left","Middle","Right","Lamp"],pathEl=document.getElementById('path');
+labels.forEach(l=>{const d=document.createElement('div');d.className='stage';d.innerHTML=`${l}<b>-</b>`;pathEl.appendChild(d);});
+const stages=[...pathEl.children];
+function mv(i){pos[i]=(pos[i]+1)%26;turns[i]++;rots[i].style.transform=`rotate(${-turns[i]*D}deg)`;}
+function step(){if(pos[1]==N[1]){mv(0);mv(1);}else if(pos[2]==N[2])mv(1);mv(2);}
+function th(c,i,f){const p=pos[i];c=f?A.indexOf(W[i][(c+p)%26]):W[i].indexOf(A[(c+p)%26]);return(c-p+26)%26;}
+function enc(c){step();const t=[c];for(const i of[2,1,0]){c=th(c,i,true);t.push(c);}c=A.indexOf(R[c]);t.push(c);for(const i of[0,1,2]){c=th(c,i,false);t.push(c);}t.push(c);return t;}
+const $=id=>document.getElementById(id),led=$('led');
+function draw(){$('scr1').textContent="Rotors: "+A[pos[0]]+A[pos[1]]+A[pos[2]];$('scr2').textContent="Key: < "+A[sel]+" >";$('scr3').textContent="In:"+pin.slice(-6)+" Out:"+pout.slice(-6);$('sel').textContent=A[sel];$('pin').textContent=pin;$('pout').textContent=pout;}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function press(){if(busy)return;busy=true;const t=enc(sel);draw();stages.forEach(s=>{s.classList.remove('on');s.querySelector('b').textContent='-';});
+ await sleep(500);for(let k=0;k<t.length;k++){stages.forEach(s=>s.classList.remove('on'));stages[k].classList.add('on');stages[k].querySelector('b').textContent=A[t[k]];await sleep(170);}
+ pin+=A[sel];pout+=A[t[t.length-1]];led.setAttribute('fill','#EF9F27');led.setAttribute('stroke','#854F0B');draw();await sleep(450);led.setAttribute('fill','#378ADD');led.setAttribute('stroke','#185FA5');busy=false;}
+function reset(){if(busy)return;for(let i=0;i<3;i++){pos[i]=0;turns[i]=0;rots[i].style.transform='rotate(0deg)';}pin="";pout="";stages.forEach(s=>{s.classList.remove('on');s.querySelector('b').textContent='-';});led.setAttribute('fill','#E24B4A');setTimeout(()=>led.setAttribute('fill','#378ADD'),400);draw();}
+async function demo(){if(busy)return;reset();await sleep(500);for(const ch of"HELLO"){const target=A.indexOf(ch);while(sel!=target){sel=(sel+(target>sel?1:-1)+26)%26;draw();await sleep(60);}await sleep(250);await press();await sleep(350);}}
+$('bl').onclick=()=>{if(!busy){sel=(sel+25)%26;draw();}};
+$('br').onclick=()=>{if(!busy){sel=(sel+1)%26;draw();}};
+$('bk').onclick=press;$('bz').onclick=reset;$('bp').onclick=demo;draw();
+</script>
+</body>
+</html>
